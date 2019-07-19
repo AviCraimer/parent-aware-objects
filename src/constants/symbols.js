@@ -1,5 +1,6 @@
 module.exports = {
-    targetFromProxy: Symbol('Get Target'),
-    isProxy: Symbol('Is Proxy'),
-    parents: Symbol("An object's parents")
+    targetFromProxy: Symbol('Get Target from Proxy'),
+    proxyFromTarget: Symbol('Get Proxy from Target'),
+    isProxy: Symbol('Object Is A Proxy'),
+    parents: Symbol('All parents and property paths from each parent')
 }

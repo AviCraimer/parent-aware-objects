@@ -1,5 +1,4 @@
-const  {objectsToProxies} = require( '../../lookupMaps');
-const  { targetFromProxy, isProxy, parents } = require( '../../constants/symbols');
+const  { targetFromProxy, isProxy, parents, proxyFromTarget } = require( '../../constants/symbols');
 const {isRegularObject,getBuiltInClass,isLiteral,isBasicData} = require('../../utils/introspection');
 
 const handlers = {};
@@ -32,10 +31,10 @@ handlers.getOwnPropertyDescriptor = function (target, prop) {
     //   }
     const descriptor = Reflect.getOwnPropertyDescriptor(target, prop);
 
-    if (typeof descriptor.value === 'object') {
+    if (!isBasicData(descriptor.value) ) {
         //Ensures that the proxy is returned rather than the actual object.
         //For future I should add checks and things in case the object isn't in the map
-        descriptor.value = objectsToProxies.get(descriptor.value);
+        descriptor.value = descriptor.value[proxyFromTarget];
     }
 
     return descriptor;
@@ -61,7 +60,7 @@ handlers.get = function (target, property, proxy) {
     if (isBasicData(defaultGet) || property === parents) {
        return defaultGet;
     } else {
-        return objectsToProxies.get(defaultGet);
+        return defaultGet[proxyFromTarget];
     }
 }
 
@@ -74,14 +73,17 @@ handlers.set = function (target, property, value, proxy) {
         valueProxy = value;
         valueTarget = value[targetFromProxy];
         // console.log('proxy value', valueProxy, valueTarget )
-    } else  { //Not a proxy
+    } else if (value[proxyFromTarget]) {
+        //Not a proxy, but already has a proxy. In general this shouldn't happen since the targets are not exposed, but just in case.
+        valueTarget = value;
+        valueProxy = value[proxyFromTarget];
+    } else  { //Not a proxy and doesn't have a proxy already
         //The value is an object but it is not wrapped in a proxy so make a proxy for the value
-
         valueTarget = value;
         //We have to check for nested objects.
         //For now I'm just simplifying assuming the value has no nested objects.
         valueProxy =  new Proxy(valueTarget, handlers);
-        objectsToProxies.set(valueTarget, valueProxy);
+        Reflect.set(valueTarget, proxyFromTarget, valueProxy);
         //We know that if target is wrapped in proxy then it already has the parents property added to it, but it is not wrapped we must add the parent's proxy. Still I'll check for good measure
         if (valueTarget[parents] === undefined) {
             //A map from parent proxy objects to an array of property names or symbols
