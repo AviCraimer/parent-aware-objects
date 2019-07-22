@@ -1,7 +1,7 @@
 const {pao} = require('./pao');
 
 // window.pao = pao;
-console.log(pao);
+// console.log(pao);
 
 window.pao = pao;
 
@@ -41,14 +41,30 @@ for (const person of people) {
 //Ted Chiang twice
 tree.people[tree.people.length] = people[1];
 
-console.log(tree.people);
+// console.log(tree.people);
 
-console.log(tree.people[pao.targetFromProxy]);
+// console.log(tree.people[pao.targetFromProxy]);
 
 //Over
 const tolstoy = tree.people[0];
 
 tree.people[0] = Person('Leo Trotsky');
 
-console.log(tree.people[pao.targetFromProxy]);
-console.log('Check parents',  tolstoy[pao.targetFromProxy]);
+// console.log(tree.people[pao.targetFromProxy]);
+// console.log('Check parents',  tolstoy[pao.targetFromProxy]);
+
+
+
+window.fido = {}
+
+window.alan = {
+    name: 'alan',
+    pets: [fido]
+}
+
+Object.assign(  fido, {
+    name: 'fido',
+    owners: [alan] //Set up a circular relationship
+} )
+
+

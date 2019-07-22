@@ -1,45 +1,59 @@
 const _ = require('lodash');
 const {isBasicData} = require('./introspection')
-//These functions should never be exposed outside the PAO module.
 
 
 
-
-// mapValuesDeep = (value, callback) => {
-//     if (Array.isArray(value)) {
-//       return value.map(innerValue => mapValuesDeep(innerValue, callback));
-//     } else if (_.isObject(value)) {
-//       return   _.mapValues(value, val => mapValuesDeep(val, callback));
-//     } else {
-//       return callback(value);
-//     }
-// };
 
 
 
 //Should copy object and properties with prototype. Transforming values with the callback
-mapValuesDeep = (value, cbs={}) => {
-    if (Array.isArray(value)) {
-        const mappedArray = value.map(innerValue => mapValuesDeep(innerValue, cbs));
-        if (cbs.arrayCallback) {
-            return cbs.arrayCallback(mappedArray);
-        } else {
-            return mappedArray;
-        }
-    } else if (_.isObject(value)) {
-        const proto = Object.getPrototypeOf( value );
-        const mappedObj = Object.create(proto );
+let origToMapped = undefined;
+mapValuesDeep = (value, cbs={}, parents=[]) => {
 
-        //Copy mapped properties to copied object
-        Object.assign(mappedObj,  _.mapValues(value, val => mapValuesDeep(val, cbs)) )
-        if (cbs.objCallback) {
-            return cbs.objCallback(mappedObj);
-        } else {
-            return mappedObj;
+    if (parents.length === 0) {
+        //This implies that it is the outer most function call, each recursively nested function call will have at least one element in the parents array.
+        origToMapped = new Map();
+    }
+
+    if (Array.isArray(value)) {
+        if (parents.includes(value)) {
+            //Value has alreadry been mapped so return the already mapped object. This prevents endless loop from circular object references
+            return origToMapped.get(value);
         }
+
+        const newParents = [...parents, value];
+        let mappedArray = [];
+        origToMapped.set(value, mappedArray);//Create the object referecne between arrays
+        console.log(value)
+        value.forEach((innerValue, i) =>{
+            mappedArray[i] =  mapValuesDeep(innerValue, cbs, newParents);
+        });
+
+        if (cbs.arrayCallback) {
+            mappedArray =  cbs.arrayCallback(mappedArray, [...parents]);
+        }
+        if (parents.length === 0) {origToMapped = undefined;}
+        return mappedArray;
+    } else if (_.isObject(value)) {
+        if (parents.includes(value)) {
+            //Value has alreadry been mapped so just return it without futher mapping. This prevents endless loop from circular object references
+            return  origToMapped.get(value);
+        }
+
+        const newParents = [...parents, value];
+        const proto = Object.getPrototypeOf( value );
+        let mappedObj = Object.create(proto );
+        origToMapped.set(value, mappedObj);
+        //Copy mapped properties to copied object
+        Object.assign(mappedObj,  _.mapValues(value, val => mapValuesDeep(val, cbs, newParents)) )
+        if (cbs.objCallback) {
+            mappedObj =  cbs.objCallback(mappedObj, [...parents]);
+        }
+        if (parents.length === 0) {origToMapped = undefined;}
+        return mappedObj;
     } else {
         if (cbs.litCallback) {
-            return cbs.litCallback(value);
+            return cbs.litCallback(value, [...parents]);
         } else {
             return value
         }
@@ -47,9 +61,69 @@ mapValuesDeep = (value, cbs={}) => {
 };
 
 
+const origToMappedStatus = function () {
+    //For testing
+    console.log('origToMapped: ',origToMapped);
+    return '';
+}
 
+
+
+
+
+const callbacksForMakePao = {
+    arrayCallback(arr) {
+
+    },
+    objCallback (obj) {
+        if ( isBasicData(obj)) {
+            //For dates and regexs
+            return obj;
+        }
+
+
+    },
+    litCallback (value) {
+
+    }
+}
+
+
+
+
+
+
+const flattenObject = function (value) {
+    let flatArray = [];
+    let origToFlattened = new Map();
+    //I should map to the UUID. And make the flat array a flat object. This is better for exporting.
+    const firstPass = function (value) {
+        if (Array.isArray(value) || _.isObject(value)) {
+            flatObj =  Array.isArray(value) ? [] : {};
+            origToFlattened.set(value, flatObj);
+            Object.values(value).forEach(val => firstPass(val) );
+        }
+    }
+
+    firstPass(value);
+
+    const secondPass = function (value) {
+        if (Array.isArray(value)) {
+            const flatArr = origToFlattened.get(value);
+            value.forEach( (val, i) => {
+                [i] = secondPass(val);
+            } );
+
+        } else if (_.isObject(value)) {
+
+        } else {
+            return value;
+        }
+    }
+}
 
 
 module.exports = {
-    mapValuesDeep
+    mapValuesDeep,
+    origToMappedStatus
 }

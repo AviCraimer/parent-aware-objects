@@ -1,19 +1,21 @@
-// const  {objectsToProxies} =  require('../lookupMaps');
 const  { targetFromProxy, isProxy, parents, proxyFromTarget } =  require('../constants/symbols');
 const {isRegularObject,getBuiltInClass,isLiteral,isBasicData} = require('../utils/introspection');
-const {handlers} = require('../proxyHandlers/paObject');
+const {mapValuesDeep} = require( '../utils/transmutation');
+const {paoSetup, traverseAddParents} = require('./helperFunctions');
 
 
-const pao = function () {
-    const newPaoInstance = {[parents]: new Map() }
-    const paoProxy =  new Proxy(newPaoInstance, handlers);
-    newPaoInstance[proxyFromTarget] = paoProxy;
-    return paoProxy;
+const pao = function (obj={}) {
+    //This doesn't set up the parents.
+    let mappedObj = mapValuesDeep(obj, {arrayCallback: paoSetup, objCallback: paoSetup});
+    traverseAddParents(mappedObj);
+
+    return mappedObj[proxyFromTarget];
 }
 pao.isProxy = isProxy;
 pao.targetFromProxy = targetFromProxy;
 pao.parents = parents;
 pao.proxyFromTarget = proxyFromTarget;
 module.exports = {
-    pao
+    pao,
+    paoSetup
 }

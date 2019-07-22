@@ -1,5 +1,5 @@
-const  { targetFromProxy, isProxy, parents, proxyFromTarget } = require( '../../constants/symbols');
-const {isRegularObject,getBuiltInClass,isLiteral,isBasicData} = require('../../utils/introspection');
+const  { targetFromProxy, isProxy, parents, proxyFromTarget } = require( '../constants/symbols');
+const {isRegularObject,getBuiltInClass,isLiteral,isBasicData} = require('../utils/introspection');
 
 const handlers = {};
 
@@ -152,5 +152,5 @@ handlers.construct = function () {
 }
 
 module.exports = {
-    handlers
+      handlers
 }

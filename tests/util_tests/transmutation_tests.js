@@ -1,4 +1,4 @@
-const  {mapValuesDeep} = require(  '../../src/utils/transmutation');
+const  {mapValuesDeep, origToMappedStatus} = require(  '../../src/utils/transmutation');
 
 
 const testProto = {
@@ -8,11 +8,16 @@ const testProto = {
  }
 
 
-const fido = Object.create(testProto);
+let fido = Object.create(testProto);
+
+const alan = {
+    name: 'alan',
+    pets: [fido]
+}
 
 Object.assign(  fido, {
     name: 'fido',
-    owners: ['fred', 'alan']
+    owners: [alan] //Set up a circular relationship
 } )
 
 
@@ -31,9 +36,11 @@ const callbacks = {
 }
 
 
+
 const fidoCopy =   mapValuesDeep(fido, callbacks);
 
 console.log('Fido:\n',  fido);
 console.log('Copy:\n',  fidoCopy);
-
 fidoCopy.bark();
+
+console.log(origToMappedStatus())
