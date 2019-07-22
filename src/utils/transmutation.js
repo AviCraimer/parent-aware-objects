@@ -1,6 +1,6 @@
 const _ = require('lodash');
 const {isBasicData} = require('./introspection')
-
+const uuid = require('uuid/v1');
 
 
 
@@ -90,40 +90,103 @@ const callbacksForMakePao = {
 
 
 
+const flattenObject = function (obj) {
+    let containerObj = {
+        entryPointId: "",
+        lookupTable: {}
+    };
+    let origToId = new Map();
 
-
-
-const flattenObject = function (value) {
-    let flatArray = [];
-    let origToFlattened = new Map();
-    //I should map to the UUID. And make the flat array a flat object. This is better for exporting.
     const firstPass = function (value) {
         if (Array.isArray(value) || _.isObject(value)) {
+            if (origToId.get(value)) {
+                //Value has already been processed so terminate. This avoids circular reference loops.
+                return;
+            }
             flatObj =  Array.isArray(value) ? [] : {};
-            origToFlattened.set(value, flatObj);
+
+            const id = uuid();
+            origToId.set(value, id);
+            containerObj.lookupTable[id] = flatObj;
             Object.values(value).forEach(val => firstPass(val) );
         }
     }
 
-    firstPass(value);
 
-    const secondPass = function (value) {
-        if (Array.isArray(value)) {
-            const flatArr = origToFlattened.get(value);
-            value.forEach( (val, i) => {
-                [i] = secondPass(val);
-            } );
+    firstPass(obj);
 
-        } else if (_.isObject(value)) {
+    //Set the entry point id based on the top level value that was passed in.
+    containerObj.entryPointId = origToId.get(obj);
 
+    const secondPass = function (current) {
+        if (Array.isArray(current) || _.isObject(current)) {
+            const currentId  = origToId.get(current);
+
+            const currentFlat = containerObj.lookupTable[currentId];
+
+            if (Object.keys(currentFlat).length !== 0) {
+                //If this is the first time the object has been encountered in the second path it should be an empty object or array.
+                return;
+            }
+
+            Object.entries(current).forEach(
+                ([key, value]) => {
+                    if (Array.isArray(value) || _.isObject(value)) {
+
+                        const nestedId = origToId.get(value);
+                        currentFlat[key] = {objectRef: nestedId };
+                        secondPass(value);
+                    } else {
+                        currentFlat[key] = value;
+                    }
+
+                });
         } else {
             return value;
         }
     }
+
+    secondPass(obj);
+
+    return containerObj;
 }
+
+
+const unflattenObject = function (obj) {
+    if (typeof obj === 'string') {
+        obj = JSON.parse(obj);
+    }
+    const deepObj = {};
+    const {lookupTable, entryPointId} = obj;
+    const entryPoint = lookupTable[entryPointId];
+    const newLookup = {...lookupTable};
+    const finished = new Set();
+    const firstPass = function (obj) {
+        if (finished.has(obj)) {
+            return;
+        }
+//I need to think about this!
+    Object
+        .entries(obj)
+        .forEach(([key, value]) => {
+            if (_.isObject(value)) {
+
+                firstPass(lookupTable[value.objectRef])
+            } else {
+                newLookup[key]
+            }
+        });
+    finished.add(obj);
+}
+
+    firstPass(entryPoint);
+
+}
+
 
 
 module.exports = {
     mapValuesDeep,
-    origToMappedStatus
+    origToMappedStatus,
+    flattenObject
 }

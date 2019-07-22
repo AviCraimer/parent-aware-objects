@@ -1,8 +1,8 @@
 const {pao} = require('./pao');
-
+const {flattenObject} = require('./utils/transmutation');
 // window.pao = pao;
 // console.log(pao);
-
+window.flat = flattenObject;
 window.pao = pao;
 
 window.obj1Proxy = pao();
