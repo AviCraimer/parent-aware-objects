@@ -1,8 +1,9 @@
 const {pao} = require('./pao');
-const {flattenObject} = require('./utils/transmutation');
+const {flattenObject, unflattenObject} = require('./utils/transmutation');
 // window.pao = pao;
 // console.log(pao);
 window.flat = flattenObject;
+window.unflat = unflattenObject;
 window.pao = pao;
 
 window.obj1Proxy = pao();
@@ -62,9 +63,16 @@ window.alan = {
     pets: [fido]
 }
 
+alan[Symbol('hello')] = 'mom';
+
 Object.assign(  fido, {
     name: 'fido',
     owners: [alan] //Set up a circular relationship
 } )
 
+
+fido[Symbol('hello')] = 'world';
+fido[Symbol('nestedObjSym')] = {
+    'I am an object': 1
+}
 

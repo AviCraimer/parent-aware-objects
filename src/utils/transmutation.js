@@ -88,9 +88,13 @@ const callbacksForMakePao = {
     }
 }
 
+const symbolEntries = function (obj) {
+    const symArr = Object.getOwnPropertySymbols(obj);
 
+    return symArr.map(sym => [sym, obj[sym]])
+}
 
-const flattenObject = function (obj) {
+const flattenObject = function (obj, symbolValuesKey='__symbolValues__') {
     let containerObj = {
         entryPointId: "",
         lookupTable: {}
@@ -109,6 +113,7 @@ const flattenObject = function (obj) {
             origToId.set(value, id);
             containerObj.lookupTable[id] = flatObj;
             Object.values(value).forEach(val => firstPass(val) );
+            symbolEntries(value).forEach(([, val]) => firstPass(val))
         }
     }
 
@@ -129,7 +134,9 @@ const flattenObject = function (obj) {
                 return;
             }
 
-            Object.entries(current).forEach(
+
+            Object.entries(current)
+            .forEach(
                 ([key, value]) => {
                     if (Array.isArray(value) || _.isObject(value)) {
 
@@ -140,7 +147,25 @@ const flattenObject = function (obj) {
                         currentFlat[key] = value;
                     }
 
-                });
+            });
+            currentFlat[symbolValuesKey] = [];
+            symbolEntries(current)
+            .forEach( ([sym, value]) => {
+                if (Array.isArray(value) || _.isObject(value)) {
+
+                    const nestedId = origToId.get(value);
+                    currentFlat[symbolValuesKey].push ( {
+                        objectRef: nestedId,
+                        symbolDescription: sym.description
+                    });
+                    secondPass(value);
+                } else {
+                    currentFlat[symbolValuesKey].push({
+                        symbolDescription: sym.description,
+                        value
+                    });
+                }
+            });
         } else {
             return value;
         }
@@ -152,35 +177,81 @@ const flattenObject = function (obj) {
 }
 
 
-const unflattenObject = function (obj) {
+const unflattenObject = function (
+    obj,
+    descriptionToSymbol={},
+    symbolValuesKey='__symbolValues__'
+) {
     if (typeof obj === 'string') {
         obj = JSON.parse(obj);
     }
-    const deepObj = {};
     const {lookupTable, entryPointId} = obj;
     const entryPoint = lookupTable[entryPointId];
-    const newLookup = {...lookupTable};
-    const finished = new Set();
-    const firstPass = function (obj) {
-        if (finished.has(obj)) {
+    const initObj = (obj) => Array.isArray(obj) ? []:  {};
+
+    const deepObj = initObj(entryPoint);
+
+    const inProcess = new Map();
+    const assignToUnflat = function (lookupObj, unflatObj) {
+        if (inProcess.has(lookupObj)) {
+            //This shouldn't actually be necessary since we never call the function on objects that are already in the inProcess Map.
+            console.warn("Already has object. Shouldn't fire.")
             return;
         }
-//I need to think about this!
-    Object
-        .entries(obj)
-        .forEach(([key, value]) => {
-            if (_.isObject(value)) {
+        inProcess.set(lookupObj, unflatObj);
 
-                firstPass(lookupTable[value.objectRef])
+        const refObjectAssign = function (key, objId) {
+
+            const refLookupObj = lookupTable[objId];
+
+            if (inProcess.get(refLookupObj)) {
+                //If the object has already been processed or is in process, get it from the map.
+
+                unflatObj[key] = inProcess.get(refLookupObj);
             } else {
-                newLookup[key]
+                //If the object doesn't exist yet, call first pass on it.
+
+                const refUnflatObj = initObj(refLookupObj);
+                unflatObj[key] = refUnflatObj;
+                assignToUnflat(refLookupObj, refUnflatObj );
+            }
+        }
+
+        Object
+        .entries(lookupObj)
+        .forEach(([key, value]) => {
+            if (key === symbolValuesKey) {
+                const symbolValuesDescription = lookupObj[symbolValuesKey];
+                symbolValuesDescription.forEach(({symbolDescription, value, objectRef  }) => {
+                    //Checks for symbol description in the descriptionToSymbol argument, if it isn't there creates a new symbol.
+                   //Add each newly created symbol to the descriptionToSymbol object. It is a fair assumption that we'll want only as many symbols as there are unique descriptions.
+                    let sym;
+
+                    if (descriptionToSymbol[symbolDescription]) {
+                        sym = descriptionToSymbol[symbolDescription];
+                    } else {
+                       sym =  Symbol(symbolDescription);
+                       descriptionToSymbol[symbolDescription] = sym;
+                    }
+
+                    if (objectRef) {
+                        refObjectAssign(sym, objectRef);
+                    } else if (value) {
+                        unflatObj[sym] = value;
+                    }
+                });
+
+            } else if (_.isObject(value) && value.objectRef) {
+                refObjectAssign(key, value.objectRef);
+
+            } else {
+                //When it is a literal
+                unflatObj[key] = value;
             }
         });
-    finished.add(obj);
-}
-
-    firstPass(entryPoint);
-
+    }
+    assignToUnflat(entryPoint, deepObj);
+    return deepObj;
 }
 
 
@@ -188,5 +259,6 @@ const unflattenObject = function (obj) {
 module.exports = {
     mapValuesDeep,
     origToMappedStatus,
-    flattenObject
+    flattenObject,
+    unflattenObject
 }
