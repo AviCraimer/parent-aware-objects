@@ -1,9 +1,45 @@
 const  { targetFromProxy, isProxy, parents, proxyFromTarget } = require( '../constants/symbols');
 const {isRegularObject,getBuiltInClass,isLiteral,isBasicData} = require('../utils/introspection');
+const {paoStamp} = require('../pao/paoStamp');
+
+console.log("paoStamp:", paoStamp);
 
 const handlers = {};
+const paoFactory = paoStamp(handlers);
 
 
+//Used in deleteProperty and set
+const parentRemovalFromDescendents = function (parent, child, ancestors = []) {
+    //If the value of the deleted property has no parents, it is effectively out of the tree. Therefore, it's children (the grandchildren of the original target) should have the deleted property value removed from their parent's array. This propogates down.
+
+    const parentsMap = child[parents];
+    parentProxy = parent[proxyFromTarget];
+
+    let paths = parentsMap.get(parentProxy);
+
+    //Remove the path
+    paths = paths.filter(path => path !== property);
+    if (paths.length > 0) {
+        parentsMap.set(parentProxy, paths);
+    } else {
+        parentsMap.delete(parent[proxyFromTarget]);
+
+        if (parentsMap.size === 0 && !ancestors.includes(parent)) {
+
+            Object.values( child ).forEach(grandchild => {
+                if (!isBasicData(grandchild)) {
+                    parentRemovalFromDescendents(child, grandchild, [...ancestors, parent]);
+                }
+            });
+        }
+
+    }
+
+
+    console.log(parent, child, child[parents]);
+
+
+}
 // handlers.getPrototypeOf = function () {
 
 // }
@@ -55,13 +91,27 @@ handlers.get = function (target, property, proxy) {
     if (property === isProxy) {
         return true;
     }
+    if (property === parents) {
+        return Reflect.get(target, parents);
+    }
+
     const defaultGet = Reflect.get(target, property);
+
+    //Trapping methods
+    if (typeof defaultGet === "function") {
+        return function (...args) {
+            //original method with the proxy as the value of "this";
+            return defaultGet.apply(proxy, args);
+        }
+    }
 
     if (isBasicData(defaultGet) || property === parents) {
        return defaultGet;
     } else {
         return defaultGet[proxyFromTarget];
     }
+
+
 }
 
 handlers.set = function (target, property, value, proxy) {
@@ -71,44 +121,34 @@ handlers.set = function (target, property, value, proxy) {
         valueTarget = value;
     } else if (value[isProxy] === true) {
         valueProxy = value;
-        valueTarget = value[targetFromProxy];
+
+        //Call paoFactory to update the parent's arrays of any objects who's refs might have been previously deleted due to the delete operator.
+        valueTarget = paoFactory( value[targetFromProxy]) ;
         // console.log('proxy value', valueProxy, valueTarget )
     } else if (value[proxyFromTarget]) {
         //Not a proxy, but already has a proxy. In general this shouldn't happen since the targets are not exposed, but just in case.
-        valueTarget = value;
+        valueTarget = paoFactory(value);
         valueProxy = value[proxyFromTarget];
     } else  { //Not a proxy and doesn't have a proxy already
         //The value is an object but it is not wrapped in a proxy so make a proxy for the value
-        valueTarget = value;
-        //We have to check for nested objects.
-        //For now I'm just simplifying assuming the value has no nested objects.
-        valueProxy =  new Proxy(valueTarget, handlers);
-        Reflect.set(valueTarget, proxyFromTarget, valueProxy);
-        //We know that if target is wrapped in proxy then it already has the parents property added to it, but it is not wrapped we must add the parent's proxy. Still I'll check for good measure
-        if (valueTarget[parents] === undefined) {
-            //A map from parent proxy objects to an array of property names or symbols
-            valueTarget[parents] = new Map();
-        }
+        valueTarget = paoFactory(value);
+        valueProxy  = valueTarget[proxyFromTarget];
     }
 
     //Now we need to check if there is an existing value at that key, and if it is an object with a parents property
 
     if (!isBasicData(target[property])) { //Check if there is an existing value at that property key which is a trackable object.
         const existingTrackableObject = target[property];
+
         if (existingTrackableObject === valueTarget ) {
             //In this case, the value is being set to the same, we know it's an object since we tested it with isBasicData.
             //No need to set anything.
             return (valueProxy);
         } else { //Book keeping on the old value to keep it's parents array up to date
-            let paths = existingTrackableObject[parents].get(proxy);
-            //Remove the path
-            paths = paths.filter(path => path !== property);
-            if (paths.length > 0) {
-                existingTrackableObject[parents].set(proxy, paths);
-            } else {
-                //Delete the proxy parent as there are no more paths
-                existingTrackableObject[parents].delete(proxy);
-            }
+
+        parentRemovalFromDescendents(target, existingTrackableObject);
+
+
 
         }
 
@@ -132,25 +172,38 @@ handlers.set = function (target, property, value, proxy) {
 }
 
 
-handlers.deleteProperty = function () {
-    // A trap for the delete operator.
 
+
+
+handlers.deleteProperty = function (target, property) {
+    const child = Reflect.get(target, property);
+    if (!isBasicData(child)) {
+        parentRemovalFromDescendents(target, child);
+    }
+
+    Reflect.deleteProperty(target, property);
+    return true;
 }
-handlers.ownKeys = function () {
+// handlers.ownKeys = function (target) {
+
+
     // A trap for Object.getOwnPropertyNames and Object.getOwnPropertySymbols.
 
-}
-handlers.apply = function () {
+// }
+// handlers.apply = function () {
+
+
+
     // A trap for a function call.
 
-}
+// }
 
 
-handlers.construct = function () {
+// handlers.construct = function () {
     // A trap for the new operator.
 
-}
+// }
 
 module.exports = {
-      handlers
+      paObjectHandlers: handlers
 }

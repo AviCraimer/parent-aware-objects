@@ -1,4 +1,4 @@
-const {pao} = require('./pao');
+const {pao} = require('./pao/pao');
 const {flattenObject, unflattenObject} = require('./utils/transmutation');
 // window.pao = pao;
 // console.log(pao);
@@ -76,3 +76,6 @@ fido[Symbol('nestedObjSym')] = {
     'I am an object': 1
 }
 
+
+window.fp = pao(fido);
+window.owners = fp.owners;

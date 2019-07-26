@@ -41,5 +41,5 @@ handlers.construct = function () {
 }
 
 module.exports = {
-    handlers
+    readOnlyHandlers: handlers
 }

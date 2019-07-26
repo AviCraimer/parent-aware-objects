@@ -1,4 +1,4 @@
-const {proxyObjSym, entityIdSym} = require('../constants/symbols-old');
+// const {proxyObjSym, entityIdSym} = require('../constants/symbols-old');
 
 exports.pao = function (path, obj) { //Second argument is optional. If only first argument is provided it gets the proxy for that path, if second argument is provided it sets the value of the tree with that object
     if (obj[proxyObjSym] === true) {
