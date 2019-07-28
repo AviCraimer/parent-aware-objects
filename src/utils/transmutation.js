@@ -60,6 +60,48 @@ mapValuesDeep = (value, cbs={}, parents=[]) => {
     }
 };
 
+mutateValuesDeep = (value, cbs={}, parents=[]) => {
+
+    if (parents.length === 0) {
+        //This implies that it is the outer most function call, each recursively nested function call will have at least one element in the parents array.
+        origToMapped = new Map();
+    }
+
+    if (!isBasicData(value)) {
+        if (parents.includes(value)) {
+            //Value has alreadry been mapped so return the already mapped object. This prevents endless loop from circular object references
+            return parents[value];
+        }
+        let callback;
+        if (Array.isArray(value) && cbs.arrayCallback) {
+            callback = cbs.arrayCallback;
+        } else if (cbs.objCallback)  {
+            callback = cbs.objCallback;
+        }
+
+        const newParents = [...parents, value];
+        if (callback) {
+            //Mutate array or object with callback
+            callback(value, [...parents]);
+        }
+
+        //Mutate values
+        Object.entries(value).forEach(([key, innerValue]) =>{
+            //Call mutate values on each
+            value[key] = mutateValuesDeep(innerValue, cbs, newParents);
+        });
+
+        return value;
+    }  else {
+        if (cbs.litCallback) {
+            return cbs.litCallback(value, [...parents]);
+        } else {
+            return value
+        }
+    }
+};
+
+
 
 const origToMappedStatus = function () {
     //For testing
@@ -260,5 +302,6 @@ module.exports = {
     mapValuesDeep,
     origToMappedStatus,
     flattenObject,
-    unflattenObject
+    unflattenObject,
+    mutateValuesDeep
 }

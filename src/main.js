@@ -1,5 +1,5 @@
 const {pao} = require('./pao/pao');
-const {flattenObject, unflattenObject} = require('./utils/transmutation');
+const {flattenObject, unflattenObject, mutateValuesDeep} = require('./utils/transmutation');
 // window.pao = pao;
 // console.log(pao);
 window.flat = flattenObject;
@@ -54,7 +54,7 @@ tree.people[0] = Person('Leo Trotsky');
 // console.log(tree.people[pao.targetFromProxy]);
 // console.log('Check parents',  tolstoy[pao.targetFromProxy]);
 
-
+window.mutateDeep = mutateValuesDeep;
 
 window.fido = {}
 

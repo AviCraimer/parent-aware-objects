@@ -1,5 +1,9 @@
-const {paoStamp} = require('./paoStamp');
-const {paObjectHandlers} = require('../proxyHandlers/paObjectHandlers');
+const {    addToParentsMap,
+    traverseAddParents,
+    makeNewPao,
+    refreshPaoParents,
+    paoProxySetup} = require('./paoUtils');
+const {paObjectHandlers} = require('./paObjectHandlers');
 const  { targetFromProxy, isProxy, parents, proxyFromTarget } =  require('../constants/symbols');
 
 const pao = paoStamp(paObjectHandlers);

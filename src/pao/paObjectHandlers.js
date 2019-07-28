@@ -1,6 +1,10 @@
 const  { targetFromProxy, isProxy, parents, proxyFromTarget } = require( '../constants/symbols');
 const {isRegularObject,getBuiltInClass,isLiteral,isBasicData} = require('../utils/introspection');
-const {paoStamp} = require('../pao/paoStamp');
+const {    addToParentsMap,
+    traverseAddParents,
+    makeNewPao,
+    refreshPaoParents,
+    paoProxySetup} = require('./paoUtils');
 
 console.log("paoStamp:", paoStamp);
 
@@ -203,6 +207,10 @@ handlers.deleteProperty = function (target, property) {
     // A trap for the new operator.
 
 // }
+
+
+
+
 
 module.exports = {
       paObjectHandlers: handlers
