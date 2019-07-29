@@ -1,24 +1,25 @@
 const {    addToParentsMap,
     traverseAddParents,
-    makeNewPao,
+    newPaoFromObj,
     refreshPaoParents,
     paoProxySetup} = require('./paoUtils');
-const {paObjectHandlers} = require('./paObjectHandlers');
 const  { targetFromProxy, isProxy, parents, proxyFromTarget } =  require('../constants/symbols');
 
-const pao = paoStamp(paObjectHandlers);
+const pao = function (obj) {
+    return newPaoFromObj(obj)
+}
 
 //These are temporary for dev purposes
 pao.isProxy = isProxy;
 pao.targetFromProxy = targetFromProxy;
-pao.parentsSym = parents;
 pao.proxyFromTarget = proxyFromTarget;
 
 
-pao.parents = function (objProxy) {
+pao.getParents = function (objProxy) {
     let parentsMap = objProxy[parents];
 
-    return new Proxy(parentsMap, readOnlyHandlers);
+    // return new Proxy(parentsMap, readOnlyHandlers);
+    return parentsMap;
 }
 
 module.exports = {

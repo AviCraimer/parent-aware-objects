@@ -1,8 +1,10 @@
 const  { targetFromProxy, isProxy, parents, proxyFromTarget } =  require('../constants/symbols');
-const {isRegularObject,getBuiltInClass,isLiteral,isBasicData} = require('../utils/introspection');
+const {isBasicData} = require('../utils/introspection');
 const { mutateValuesDeep} = require( '../utils/transmutation');
-const {readOnlyHandlers} = require('../proxyHandlers/readOnlyObjectHandlers');
+
 const {cloneDeep} = require('lodash');
+
+const paObjectHandlers = {};
 
 const addToParentsMap = function (child, parent, key) {
     const parentsMap = child[parents];
@@ -30,14 +32,14 @@ const traverseAddParents  = function (obj, parents = [obj]) {
     });
 }
 
-const makeNewPao = function (obj) {
+const newPaoFromObj = function (obj) {
         const objCopy = cloneDeep(obj);
         mutateValuesDeep(
             objCopy,
-            {arrayCallback: initialSetup, objCallback: initialSetup}
+            {arrayCallback: paoProxySetup, objCallback: paoProxySetup}
         );
         traverseAddParents(objCopy);
-        return mappedObj[proxyFromTarget];
+        return objCopy[proxyFromTarget];
 }
 
 const refreshPaoParents = function (paoProxy) {
@@ -46,24 +48,58 @@ const refreshPaoParents = function (paoProxy) {
 }
 
 
-const paoProxySetup =  function (obj, handlers) {
+const paoProxySetup =  function (obj) {
     if (obj[isProxy]) {  //But if it is a proxy, will it be copied properly in mapValuesDeep?
         obj = obj[targetFromProxy];
     }
 
     //This sets up the proxy and the parents map, but it doesn't populate the parents map with anything.
-    const paoProxy =  new Proxy(obj, handlers);
+    const paoProxy =  new Proxy(obj, paObjectHandlers);
     obj[proxyFromTarget] = paoProxy;
     obj[parents] = new Map();
     return obj;
 };
 
 
+//Used in deleteProperty and set
+const parentRemovalFromDescendents = function (parent, child, ancestors = []) {
+    //If the value of the deleted property has no parents, it is effectively out of the tree. Therefore, it's children (the grandchildren of the original target) should have the deleted property value removed from their parent's array. This propogates down.
+
+    const parentsMap = child[parents];
+    parentProxy = parent[proxyFromTarget];
+
+    let paths = parentsMap.get(parentProxy);
+
+    //Remove the path
+    paths = paths.filter(path => path !== property);
+    if (paths.length > 0) {
+        parentsMap.set(parentProxy, paths);
+    } else {
+        parentsMap.delete(parent[proxyFromTarget]);
+
+        if (parentsMap.size === 0 && !ancestors.includes(parent)) {
+
+            Object.values( child ).forEach(grandchild => {
+                if (!isBasicData(grandchild)) {
+                    parentRemovalFromDescendents(child, grandchild, [...ancestors, parent]);
+                }
+            });
+        }
+
+    }
+
+
+    console.log(parent, child, child[parents]);
+
+
+}
 
 module.exports = {
+    paObjectHandlers,
     addToParentsMap,
     traverseAddParents,
-    makeNewPao,
+    newPaoFromObj,
     refreshPaoParents,
-    paoProxySetup
+    paoProxySetup,
+    parentRemovalFromDescendents
 }

@@ -1,66 +1,30 @@
 const  { targetFromProxy, isProxy, parents, proxyFromTarget } = require( '../constants/symbols');
 const {isRegularObject,getBuiltInClass,isLiteral,isBasicData} = require('../utils/introspection');
-const {    addToParentsMap,
+const {
+    paObjectHandlers,
+    addToParentsMap,
     traverseAddParents,
     makeNewPao,
     refreshPaoParents,
-    paoProxySetup} = require('./paoUtils');
-
-console.log("paoStamp:", paoStamp);
-
-const handlers = {};
-const paoFactory = paoStamp(handlers);
+    paoProxySetup,
+    parentRemovalFromDescendents
+} = require('./paoUtils');
 
 
-//Used in deleteProperty and set
-const parentRemovalFromDescendents = function (parent, child, ancestors = []) {
-    //If the value of the deleted property has no parents, it is effectively out of the tree. Therefore, it's children (the grandchildren of the original target) should have the deleted property value removed from their parent's array. This propogates down.
 
-    const parentsMap = child[parents];
-    parentProxy = parent[proxyFromTarget];
-
-    let paths = parentsMap.get(parentProxy);
-
-    //Remove the path
-    paths = paths.filter(path => path !== property);
-    if (paths.length > 0) {
-        parentsMap.set(parentProxy, paths);
-    } else {
-        parentsMap.delete(parent[proxyFromTarget]);
-
-        if (parentsMap.size === 0 && !ancestors.includes(parent)) {
-
-            Object.values( child ).forEach(grandchild => {
-                if (!isBasicData(grandchild)) {
-                    parentRemovalFromDescendents(child, grandchild, [...ancestors, parent]);
-                }
-            });
-        }
-
-    }
-
-
-    console.log(parent, child, child[parents]);
-
-
-}
-// handlers.getPrototypeOf = function () {
-
-// }
-    // A trap for Object.getPrototypeOf.
-handlers.setPrototypeOf = function () {
+paObjectHandlers.setPrototypeOf = function () {
     console.warn('Not allowed to set prototype of object');
 }
     // A trap for Object.setPrototypeOf.
-// handlers.isExtensible = function () {
+// paObjectHandlers.isExtensible = function () {
 
 // }
     // A trap for Object.isExtensible.
-// handlers.preventExtensions = function () {
+// paObjectHandlers.preventExtensions = function () {
 
 // }
     // A trap for Object.preventExtensions.
-handlers.getOwnPropertyDescriptor = function (target, prop) {
+paObjectHandlers.getOwnPropertyDescriptor = function (target, prop) {
     // let exampleDescriptor = {
     //     "value": {
     //         "bar": "baz"
@@ -80,15 +44,15 @@ handlers.getOwnPropertyDescriptor = function (target, prop) {
     return descriptor;
 }
 
-handlers.defineProperty = function (target, property, descriptor) {
+paObjectHandlers.defineProperty = function (target, property, descriptor) {
     // I have to make sure that it works if you pass a descriptor with an object value. But for now I'm leaving it blank to disble
 }
 
-// handlers.has = function (target, prop) {
+// paObjectHandlers.has = function (target, prop) {
 // A trap for the in operator.
 // }
 
-handlers.get = function (target, property, proxy) {
+paObjectHandlers.get = function (target, property, proxy) {
     if (property === targetFromProxy) {
         return target;
     }
@@ -118,7 +82,7 @@ handlers.get = function (target, property, proxy) {
 
 }
 
-handlers.set = function (target, property, value, proxy) {
+paObjectHandlers.set = function (target, property, value, proxy) {
     let valueLiteral, valueProxy, valueTarget;
     if (isBasicData(value)) {
         valueLiteral = value;
@@ -179,7 +143,7 @@ handlers.set = function (target, property, value, proxy) {
 
 
 
-handlers.deleteProperty = function (target, property) {
+paObjectHandlers.deleteProperty = function (target, property) {
     const child = Reflect.get(target, property);
     if (!isBasicData(child)) {
         parentRemovalFromDescendents(target, child);
@@ -188,13 +152,13 @@ handlers.deleteProperty = function (target, property) {
     Reflect.deleteProperty(target, property);
     return true;
 }
-// handlers.ownKeys = function (target) {
+// paObjectHandlers.ownKeys = function (target) {
 
 
     // A trap for Object.getOwnPropertyNames and Object.getOwnPropertySymbols.
 
 // }
-// handlers.apply = function () {
+// paObjectHandlers.apply = function () {
 
 
 
@@ -203,7 +167,7 @@ handlers.deleteProperty = function (target, property) {
 // }
 
 
-// handlers.construct = function () {
+// paObjectHandlers.construct = function () {
     // A trap for the new operator.
 
 // }
